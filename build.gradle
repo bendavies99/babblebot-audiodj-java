@@ -1,0 +1,36 @@
+plugins {
+    id 'java-library'
+}
+
+group 'net.bdavies'
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        url "https://dl.bintray.com/bendavies99/Babblebot-Server"
+    }
+}
+
+configurations {
+    agent {
+        extendsFrom implementation
+        canBeResolved true
+    }
+}
+
+dependencies {
+    implementation 'co.uk.bjdavies:babblebot-server-api:1.2.7'
+    implementation 'co.uk.bjdavies:babblebot-server-server:1.2.7'
+    agent 'co.uk.bjdavies:babblebot-server-agent:1.2.7'
+    implementation 'org.javassist:javassist:3.26.0-GA'
+}
+
+
+task runBabblebot(type: JavaExec) {
+    dependsOn build
+    main = 'net.bdavies.test.TestApp'
+    classpath = sourceSets.main.runtimeClasspath
+    jvmArgs '-javaagent:' + project.configurations.agent.find { it.name.startsWith("babblebot-server-agent") }
+    group 'babblebot'
+}
