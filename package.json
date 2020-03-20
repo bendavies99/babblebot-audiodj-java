@@ -1,12 +1,12 @@
 {
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bendavies99/BabbleBot-Server.git"
+    "url": "git+https://github.com/bendavies99/babblebot-audiodj-java.git"
   },
   "bugs": {
-    "url": "https://github.com/bendavies99/BabbleBot-Server/issues"
+    "url": "https://github.com/bendavies99/babblebot-audiodj-java/issues"
   },
-  "homepage": "https://github.com/bendavies99/BabbleBot-Server#readme",
+  "homepage": "https://github.com/bendavies99/babblebot-audiodj-java#readme",
   "devDependencies": {
     "@semantic-release/changelog": "^5.0.0",
     "@semantic-release/commit-analyzer": "^8.0.1",
