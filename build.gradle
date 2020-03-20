@@ -29,7 +29,7 @@ dependencies {
 
 task runBabblebot(type: JavaExec) {
     dependsOn build
-    main = 'net.bdavies.test.TestApp'
+    main = 'net.bdavies.TestApp'
     classpath = sourceSets.main.runtimeClasspath
     jvmArgs '-javaagent:' + project.configurations.agent.find { it.name.startsWith("babblebot-server-agent") }
     group 'babblebot'
