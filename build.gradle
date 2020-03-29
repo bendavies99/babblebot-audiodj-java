@@ -1,6 +1,12 @@
 plugins {
     id 'java-library'
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
 }
+
+
+sourceCompatibility = '11'
+targetCompatibility = '11'
+
 
 group 'net.bdavies'
 
@@ -10,6 +16,7 @@ repositories {
     maven {
         url "https://dl.bintray.com/bendavies99/Babblebot-Server"
     }
+    maven { url 'https://jitpack.io' }
 }
 
 configurations {
@@ -19,11 +26,25 @@ configurations {
     }
 }
 
+project.configurations.api.canBeResolved(true)
+
 dependencies {
-    implementation 'co.uk.bjdavies:babblebot-server-api:1.2.7'
-    implementation 'co.uk.bjdavies:babblebot-server-server:1.2.7'
-    agent 'co.uk.bjdavies:babblebot-server-agent:1.2.7'
+    implementation 'co.uk.bjdavies:babblebot-server-api:2.0.0'
+    implementation 'co.uk.bjdavies:babblebot-server-server:2.0.0'
+    agent 'co.uk.bjdavies:babblebot-server-agent:2.0.0'
     implementation 'org.javassist:javassist:3.26.0-GA'
+    api 'com.sedmelluq:lavaplayer:1.3.34'
+
+    implementation 'org.projectlombok:lombok:1.18.12'
+    annotationProcessor 'org.projectlombok:lombok:1.18.12'
+    implementation 'com.discord4j.discord4j:discord4j-voice:2b6cd47584bbebbbf21cdb50e7abc26d04ed9f9d'
+}
+
+shadowJar {
+    archivesBaseName = 'musicbot'
+    configurations = [project.configurations.api]
+    archiveAppendix = ''
+
 }
 
 

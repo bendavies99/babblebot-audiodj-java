@@ -38,7 +38,7 @@
       [
         "@semantic-release/exec",
         {
-          "prepareCmd": "bash -c \"rm -rf ./build/libs && ./gradlew build\""
+          "prepareCmd": "bash -c \"rm -rf ./build/libs && ./gradlew shadowJar\""
         }
       ],
       [
@@ -46,7 +46,7 @@
         {
           "assets": [
             {
-              "path": "build/libs/*.jar",
+              "path": "build/libs/musicbot-*.jar",
               "label": "Jar File"
             }
           ]
