@@ -26,7 +26,10 @@ import uk.co.bjdavies.api.command.CommandExample;
 import uk.co.bjdavies.api.command.CommandParam;
 import uk.co.bjdavies.api.command.ICommandContext;
 import uk.co.bjdavies.api.discord.IDiscordFacade;
+import uk.co.bjdavies.api.plugins.IPluginEvents;
+import uk.co.bjdavies.api.plugins.IPluginSettings;
 import uk.co.bjdavies.api.plugins.Plugin;
+import uk.co.bjdavies.api.plugins.PluginConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +45,7 @@ import java.util.function.Function;
  */
 @Slf4j
 @Plugin(value = "musicbot", author = "Ben <ben.davies99@outlook.com>", minServerVersion = "2.0.0", namespace = "")
-public class MusicBotPlugin {
+public class MusicBotPlugin implements IPluginEvents {
 
     /**
      * This is the player manager allows encoding tracks and getting data from Youtube, Soundcloud, etc.
@@ -64,6 +67,9 @@ public class MusicBotPlugin {
      * This will hold all the managers in a guild.
      */
     private final Map<Long, GuildMusicManager> musicManagers;
+
+    @PluginConfig
+    private MusicBotPluginConfig config;
 
     @Inject
     public MusicBotPlugin(IApplication application, IDiscordFacade discordFacade) {
@@ -392,4 +398,18 @@ public class MusicBotPlugin {
         });
     }
 
+    @Override
+    public void onReload() {
+
+    }
+
+    @Override
+    public void onBoot(IPluginSettings settings) {
+        settings.setNamespace(config.getNamespace());
+    }
+
+    @Override
+    public void onShutdown() {
+
+    }
 }
