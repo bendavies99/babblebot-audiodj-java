@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.1.0...v1.2.0) (2020-03-30)
+
+
+### Features
+
+* **config:** Added namespace config to plugin ([4f66b32](https://github.com/bendavies99/babblebot-audiodj-java/commit/4f66b3293e8edac801a9ba5d4f98569f1ae67493))
+
 # [1.1.0](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.0.0...v1.1.0) (2020-03-29)
 
 
