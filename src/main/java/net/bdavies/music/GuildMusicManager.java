@@ -50,13 +50,6 @@ public class GuildMusicManager {
 
     private final AudioProvider provider;
 
-    /**
-     * This will determine if the last command was a search query
-     */
-    //TODO: Make this a plugin specific middleware.
-    //TODO: record channelId, so if the bot is used in a different guild channel etc, it doesnt fail.
-    private boolean waitingOnContinuousResponse = false;
-
     public GuildMusicManager(final AudioPlayerManager manager, final MusicBotPlugin pluginReference, final IDiscordFacade facade) {
         this.player = manager.createPlayer();
         this.pluginReference = pluginReference;

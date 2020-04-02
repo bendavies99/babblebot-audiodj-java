@@ -147,10 +147,19 @@ public class MusicBotPlugin implements IPluginEvents {
                     182000, 185000, 188000);
 
             loadAndPlay(commandContext, "https://www.youtube.com/watch?v=3T1c7GkzRQQ");
+            AtomicInteger index = new AtomicInteger();
             times.forEach(t -> timer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    sink.next("```\nDrink!!!\n```");
+                    sink.next("```\nDrink" + createExplanationsMarks(index.getAndIncrement()) + "\n```");
+                }
+
+                private String createExplanationsMarks(int index) {
+                    StringBuilder stringBuilder = new StringBuilder();
+                    for (int i = 0; i < index; i++) {
+                        stringBuilder.append("!");
+                    }
+                    return stringBuilder.toString();
                 }
             }, t + 2000));
             timer.schedule(new TimerTask() {
