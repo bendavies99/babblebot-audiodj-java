@@ -16,22 +16,35 @@ public abstract class MusicTrack {
     @Getter
     protected final AudioPlaylist playlist;
 
+    @Getter
+    protected final String[] options;
 
-    protected MusicTrack(AudioTrack audioTrack, AudioPlaylist playlist) {
+
+    protected MusicTrack(AudioTrack audioTrack, AudioPlaylist playlist, String[] options) {
         this.audioTrack = audioTrack;
         this.playlist = playlist;
+        this.options = options;
     }
 
     public MusicTrack(AudioTrack track) {
-        this(track, null);
+        this(track, null, new String[0]);
     }
 
     public MusicTrack(AudioPlaylist playlist) {
-        this(null, playlist);
+        this(null, playlist, new String[0]);
     }
+
+    public MusicTrack(String[] options) {
+        this(null, null, options);
+    }
+
 
     public boolean isPlaylist() {
         return playlist != null;
+    }
+
+    public boolean isOptions() {
+        return options.length > 0;
     }
 
     @Override

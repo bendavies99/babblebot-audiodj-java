@@ -10,7 +10,7 @@ import uk.co.bjdavies.api.IApplication;
 public class TestApp {
 
     public static void main(String[] args) {
-        IApplication application = Application.make(args);
+        IApplication application = Application.make(TestApp.class, args);
         application.getPluginContainer().addPlugin("music", application.get(MusicBotPlugin.class));
     }
 

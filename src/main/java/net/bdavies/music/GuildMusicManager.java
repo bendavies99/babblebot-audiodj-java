@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.bdavies.MusicBotPlugin;
+import uk.co.bjdavies.api.discord.IDiscordFacade;
 
 /**
  * This handles an AudioPlayer per Guild which allows your bot to run in multiple guilds.
@@ -56,10 +57,10 @@ public class GuildMusicManager {
     //TODO: record channelId, so if the bot is used in a different guild channel etc, it doesnt fail.
     private boolean waitingOnContinuousResponse = false;
 
-    public GuildMusicManager(final AudioPlayerManager manager, final MusicBotPlugin pluginReference) {
+    public GuildMusicManager(final AudioPlayerManager manager, final MusicBotPlugin pluginReference, final IDiscordFacade facade) {
         this.player = manager.createPlayer();
         this.pluginReference = pluginReference;
-        this.queue = new TrackQueue(player);
+        this.queue = new TrackQueue(player, facade);
         this.provider = new DiscordAudioProvider(player);
         this.player.addListener(queue);
     }

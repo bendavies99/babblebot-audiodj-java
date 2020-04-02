@@ -6,14 +6,11 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-import discord4j.core.object.entity.Message;
 import lombok.extern.slf4j.Slf4j;
-import net.bdavies.MusicBotPlugin;
-import net.bdavies.music.GuildMusicManager;
+import net.bdavies.MusicBotPluginConfig;
 import net.bdavies.music.MusicTrack;
 import net.bdavies.music.YoutubeMusicTrack;
 import reactor.core.publisher.Mono;
-import uk.co.bjdavies.api.command.ICommandContext;
 import uk.co.bjdavies.api.discord.IDiscordFacade;
 
 /**
@@ -33,7 +30,7 @@ public class StandardRequestStrategy implements RequestStrategy {
 
 
     @Override
-    public Mono<MusicTrack> handle(String request, AudioPlayerManager manager) {
+    public Mono<MusicTrack> handle(MusicBotPluginConfig config, String request, AudioPlayerManager manager) {
 
         return Mono.create(sink -> manager.loadItem(request, new AudioLoadResultHandler() {
             @Override

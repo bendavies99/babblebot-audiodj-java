@@ -7,6 +7,7 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.playback.NonAllocatingAudioFrameBuffer;
+import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.VoiceState;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Member;
@@ -31,9 +32,11 @@ import uk.co.bjdavies.api.plugins.IPluginEvents;
 import uk.co.bjdavies.api.plugins.IPluginSettings;
 import uk.co.bjdavies.api.plugins.Plugin;
 import uk.co.bjdavies.api.plugins.PluginConfig;
+import uk.co.bjdavies.command.parser.DiscordMessageParser;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -70,6 +73,8 @@ public class MusicBotPlugin implements IPluginEvents {
     @PluginConfig
     private MusicBotPluginConfig config;
 
+    private final List<ContinuousResponse> responses = new ArrayList<>();
+
     @Inject
     public MusicBotPlugin(IApplication application, IDiscordFacade discordFacade) {
         this.application = application;
@@ -88,7 +93,7 @@ public class MusicBotPlugin implements IPluginEvents {
             return Mono.just(musicManagers.get(guildId));
         }
         log.info("MusicManager not found creating one...");
-        GuildMusicManager manager = new GuildMusicManager(playerManager, this);
+        GuildMusicManager manager = new GuildMusicManager(playerManager, this, discordFacade);
         musicManagers.put(guildId, manager);
         return Mono.just(manager).log("addToMusicManagersIfDoesntExist");
     }
@@ -379,7 +384,7 @@ public class MusicBotPlugin implements IPluginEvents {
 
     private String loadAndPlay(final ICommandContext commandContext, String value) {
         return runCommand(commandContext, gmm -> {
-
+            log.info("Handling value: " + value);
             if (commandContext.getValue().equals("") && value.equals("")) {
                 if (gmm.getPlayer().isPaused()) {
                     gmm.getPlayer().setPaused(false);
@@ -389,14 +394,36 @@ public class MusicBotPlugin implements IPluginEvents {
                 }
             }
 
-            RequestStrategy strategy = RequestStrategyFactory.makeRequestStrategy(application, value);
-            strategy.handle(value, playerManager).doOnError(e ->
+            RequestStrategy strategy = RequestStrategyFactory.makeRequestStrategy(config, application, value);
+            strategy.handle(config, value, playerManager).doOnError(e ->
                     commandContext.getMessage().getChannel()
-                            .flatMap(c -> c.createMessage("Unfortunately the song you requested, failed please make sure the resource exists."))
+                            .flatMap(c ->
+                                    c.createMessage("Unfortunately the song you requested, failed please make sure the resource exists."))
                             .subscribe())
                     .subscribe(mt -> {
                         log.info("Music Track: " + mt);
-                        if (mt.isPlaylist()) {
+
+                        if (mt.isOptions()) {
+                            commandContext.getMessage().getGuild().subscribe(g -> {
+                                ContinuousResponse continuousResponse = new ContinuousResponse(g.getId(),
+                                        commandContext.getMessage().getChannelId(),
+                                        Arrays.stream(mt.getOptions()).map(o -> o.split("&")[1])
+                                                .toArray(String[]::new));
+                                responses.add(continuousResponse);
+                            });
+
+                            commandContext.getCommandResponse().sendEmbed(spec -> {
+                                spec.setTitle("Here is what has been found: (Pick one)");
+                                StringBuilder sb = new StringBuilder("```md\n");
+                                AtomicInteger index = new AtomicInteger(1);
+                                Arrays.stream(mt.getOptions()).map(o -> o.split("&")[0]).forEach(o ->
+                                        sb.append("[").append(index.getAndIncrement()).append("]: ").append(o).append("\n"));
+                                sb.append("[c]: cancel \n");
+                                sb.append("```");
+                                spec.setDescription(sb.toString());
+                            });
+
+                        } else if (mt.isPlaylist()) {
                             AudioPlaylist playlist = mt.getPlaylist();
                             Message message = commandContext.getMessage();
                             if (commandContext.hasParameter("loadPlaylist")) {
@@ -437,10 +464,48 @@ public class MusicBotPlugin implements IPluginEvents {
         }
 
         settings.setNamespace(config.getNamespace());
+
+        discordFacade.registerEventHandler(MessageCreateEvent.class, (e) -> {
+            //noinspection OptionalGetWithoutIsPresent
+            if (!e.getMessage().getAuthor().get().isBot()) {
+                Guild g = Objects.requireNonNull(e.getMessage().getGuild().block());
+                Optional<ContinuousResponse> sr = responses.stream()
+                        .filter(c -> c.getChannelId().asString().equals(e.getMessage().getChannelId().asString())
+                                && c.getGuildId().asString().equals(g.getId().asString()))
+                        .findFirst();
+                sr.ifPresent(continuousResponse -> handleContinuousMessage(continuousResponse, e.getMessage()));
+            }
+        });
+    }
+
+
+    private void handleContinuousMessage(ContinuousResponse continuousResponse, Message m) {
+        log.info("Handling continuous response...");
+        //noinspection OptionalGetWithoutIsPresent
+        String content = m.getContent().get().trim();
+        try {
+            int idx = Integer.parseInt(content) - 1;
+            String[] options = continuousResponse.getOptions();
+            String url = options[idx];
+
+            DiscordMessageParser parser = new DiscordMessageParser(m);
+            loadAndPlay(parser.parseString(url), url);
+
+        } catch (NumberFormatException e) {
+            if (content.toLowerCase().equals("c")) {
+                m.getChannel().subscribe(c -> c.createMessage("" +
+                        "Command Canceled...")
+                        .subscribe());
+            } else {
+                m.getChannel().subscribe(c -> c.createMessage("Invalid option please request again. End of request...")
+                        .subscribe());
+            }
+        }
+
+        responses.remove(continuousResponse);
     }
 
     @Override
     public void onShutdown() {
-
     }
 }

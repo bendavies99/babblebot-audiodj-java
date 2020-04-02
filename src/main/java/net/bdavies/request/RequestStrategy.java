@@ -1,6 +1,7 @@
 package net.bdavies.request;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
+import net.bdavies.MusicBotPluginConfig;
 import net.bdavies.music.MusicTrack;
 import reactor.core.publisher.Mono;
 
@@ -17,5 +18,5 @@ public interface RequestStrategy {
      * @param musicBot       - The musicBot plugin instance.
      * @return AudioTrack - audiotrack enQueue.
      */
-    Mono<MusicTrack> handle(String request, AudioPlayerManager manager);
+    Mono<MusicTrack> handle(MusicBotPluginConfig config, String request, AudioPlayerManager manager);
 }

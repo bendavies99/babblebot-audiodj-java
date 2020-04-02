@@ -10,7 +10,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 public class YoutubeMusicTrack extends MusicTrack {
 
     protected YoutubeMusicTrack(AudioTrack audioTrack, AudioPlaylist playlist) {
-        super(audioTrack, playlist);
+        super(audioTrack, playlist, new String[0]);
     }
 
     public YoutubeMusicTrack(AudioTrack track) {
@@ -19,6 +19,10 @@ public class YoutubeMusicTrack extends MusicTrack {
 
     public YoutubeMusicTrack(AudioPlaylist playlist) {
         super(playlist);
+    }
+
+    public YoutubeMusicTrack(String[] options) {
+        super(options);
     }
 
     @Override

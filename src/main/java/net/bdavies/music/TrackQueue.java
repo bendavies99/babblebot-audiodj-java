@@ -2,14 +2,15 @@ package net.bdavies.music;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
-import com.sedmelluq.discord.lavaplayer.source.youtube.*;
+import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeFormatInfo;
+import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeTrackFormat;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import uk.co.bjdavies.api.discord.IDiscordFacade;
 
-import java.net.URI;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
@@ -28,8 +29,11 @@ public class TrackQueue extends AudioEventAdapter {
     @Getter
     private final BlockingQueue<AudioTrack> underlyingQueue;
 
-    public TrackQueue(AudioPlayer player) {
+    private final IDiscordFacade facade;
+
+    public TrackQueue(AudioPlayer player, IDiscordFacade facade) {
         this.player = player;
+        this.facade = facade;
         underlyingQueue = new LinkedBlockingQueue<>();
     }
 
@@ -74,33 +78,34 @@ public class TrackQueue extends AudioEventAdapter {
 
     @Override
     public void onTrackStart(AudioPlayer player, AudioTrack track) {
-        if (track instanceof YoutubeAudioTrack) {
-            YoutubeAudioSourceManager sourceManager = (YoutubeAudioSourceManager) track.getSourceManager();
-            YoutubeTrackDetails details = sourceManager.getTrackDetailsLoader().loadDetails(sourceManager.getHttpInterface(), track.getIdentifier());
-            List<YoutubeTrackFormat> formats = details.getFormats(sourceManager.getHttpInterface(), sourceManager.getSignatureResolver());
-            YoutubeTrackFormat format = findBestSupportedFormat(formats);
-            if (format.getInfo().mimeType.split("/")[0].equals("video")) {
-                try {
-                    //URI signedUrl = sourceManager.getSignatureResolver().resolveFormatUrl(sourceManager.getHttpInterface(), details.getPlayerScript(), format);
-                    //log.info("Loading url {}", signedUrl.toString());
-
-                    //TODO: Add to webserver...
-//                    FFmpeg fFmpeg = new FFmpeg(Paths.get("/usr/bin/ffmpeg"));
-//                    fFmpeg.addInput(UrlInput.fromUrl(signedUrl.toString()));
-//                    fFmpeg.addArguments("-f", "flv");
-//                    fFmpeg.addArgument("-c:v");
-//                    fFmpeg.addArgument("libx264");
-//                    fFmpeg.addArgument("-c:a");
-//                    fFmpeg.addArgument("copy");
-//                    fFmpeg.addArgument("-ac");
-//                    fFmpeg.addArgument("1");
-//                    fFmpeg.addOutput(UrlOutput.toUrl("rtmp://hls.aaronburt.co.uk/live/audio?password=a_secret_password"));
-//                    fFmpeg.execute();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }
+//        if (track instanceof YoutubeAudioTrack) {
+//            YoutubeAudioSourceManager sourceManager = (YoutubeAudioSourceManager) track.getSourceManager();
+//            YoutubeTrackDetails details = sourceManager.getTrackDetailsLoader().loadDetails(sourceManager.getHttpInterface(), track.getIdentifier());
+//            List<YoutubeTrackFormat> formats = details.getFormats(sourceManager.getHttpInterface(), sourceManager.getSignatureResolver());
+//            YoutubeTrackFormat format = findBestSupportedFormat(formats);
+//            if (format.getInfo().mimeType.split("/")[0].equals("video")) {
+//                try {
+//                    //URI signedUrl = sourceManager.getSignatureResolver().resolveFormatUrl(sourceManager.getHttpInterface(), details.getPlayerScript(), format);
+//                    //log.info("Loading url {}", signedUrl.toString());
+//
+//                    //TODO: Add to webserver...
+////                    FFmpeg fFmpeg = new FFmpeg(Paths.get("/usr/bin/ffmpeg"));
+////                    fFmpeg.addInput(UrlInput.fromUrl(signedUrl.toString()));
+////                    fFmpeg.addArguments("-f", "flv");
+////                    fFmpeg.addArgument("-c:v");
+////                    fFmpeg.addArgument("libx264");
+////                    fFmpeg.addArgument("-c:a");
+////                    fFmpeg.addArgument("copy");
+////                    fFmpeg.addArgument("-ac");
+////                    fFmpeg.addArgument("1");
+////                    fFmpeg.addOutput(UrlOutput.toUrl("rtmp://hls.aaronburt.co.uk/live/audio?password=a_secret_password"));
+////                    fFmpeg.execute();
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+        facade.updateBotPlayingText("track: " + track.getInfo().title);
         super.onTrackStart(player, track);
     }
 
