@@ -414,6 +414,13 @@ public class MusicBotPlugin implements IPluginEvents {
 
                         if (mt.isOptions()) {
                             commandContext.getMessage().getGuild().subscribe(g -> {
+
+                                Optional<ContinuousResponse> found = responses.stream()
+                                        .filter(r -> r.getGuildId().asString().equals(g.getId().asString()))
+                                        .filter(r -> r.getChannelId().asString().equals(commandContext.getMessage().getChannelId().asString()))
+                                        .findAny();
+                                found.ifPresent(responses::remove);
+
                                 ContinuousResponse continuousResponse = new ContinuousResponse(g.getId(),
                                         commandContext.getMessage().getChannelId(),
                                         Arrays.stream(mt.getOptions()).map(o -> o.split("&")[1])
@@ -495,6 +502,14 @@ public class MusicBotPlugin implements IPluginEvents {
         try {
             int idx = Integer.parseInt(content) - 1;
             String[] options = continuousResponse.getOptions();
+
+            if (idx > 2 || idx < 0) {
+                m.getChannel().subscribe(c -> c.createMessage("Invalid option please request again. End of request...")
+                        .subscribe());
+                responses.remove(continuousResponse);
+                return;
+            }
+
             String url = options[idx];
 
             DiscordMessageParser parser = new DiscordMessageParser(m);
