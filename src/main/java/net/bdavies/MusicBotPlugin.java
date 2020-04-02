@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.bdavies.music.GuildMusicManager;
 import net.bdavies.request.RequestStrategy;
 import net.bdavies.request.RequestStrategyFactory;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.Loggers;
 import uk.co.bjdavies.api.IApplication;
@@ -31,9 +32,7 @@ import uk.co.bjdavies.api.plugins.IPluginSettings;
 import uk.co.bjdavies.api.plugins.Plugin;
 import uk.co.bjdavies.api.plugins.PluginConfig;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -130,6 +129,33 @@ public class MusicBotPlugin implements IPluginEvents {
                             return Mono.just("I Have been summoned to " + c.getName()).log("Return Message");
                         }))).log(Loggers.getLogger(MusicBotPlugin.class))
                 .map(m -> m != null ? m : "You are not in a voice channel!");
+    }
+
+    @Command(description = "Roxanne Drinking game, just for fun.")
+    public Flux<String> roxanne(ICommandContext commandContext) {
+        return Flux.create(sink -> {
+            sink.next("Starting roxanne, Disclaimer: Drink reasonably and be 18+.");
+            Timer timer = new Timer();
+            List<Integer> times = Arrays.asList(19000, 33000, 48000, 55000, 62000, 66000, 70000, 73000, 76000, 80000,
+                    119000, 126000, 133000, 137000, 140000, 145000, 148000, 150000,
+                    154000, 158000, 161000, 164000, 168000, 172000, 175000, 178000,
+                    182000, 185000, 188000);
+
+            loadAndPlay(commandContext, "https://www.youtube.com/watch?v=3T1c7GkzRQQ");
+            times.forEach(t -> timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    sink.next("```\nDrink!!!\n```");
+                }
+            }, t + 2000));
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    sink.next("```\nDone!!! Relax, I hope your drunk now lol\n```");
+                    sink.complete();
+                }
+            }, times.get(times.size() - 1) + 100);
+        });
     }
 
     @Command(aliases = {"exile", "part"},
@@ -354,7 +380,7 @@ public class MusicBotPlugin implements IPluginEvents {
     private String loadAndPlay(final ICommandContext commandContext, String value) {
         return runCommand(commandContext, gmm -> {
 
-            if (commandContext.getValue().equals("")) {
+            if (commandContext.getValue().equals("") && value.equals("")) {
                 if (gmm.getPlayer().isPaused()) {
                     gmm.getPlayer().setPaused(false);
                     return "Resumed playing";
@@ -405,6 +431,11 @@ public class MusicBotPlugin implements IPluginEvents {
 
     @Override
     public void onBoot(IPluginSettings settings) {
+
+        if (config.getYoutubeApiToken().contains("getting-started")) {
+            log.warn("Youtube search has been disabled, please enter your youtube api key into the config.");
+        }
+
         settings.setNamespace(config.getNamespace());
     }
 

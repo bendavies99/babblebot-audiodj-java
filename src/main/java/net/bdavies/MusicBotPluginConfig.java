@@ -9,6 +9,16 @@ import uk.co.bjdavies.api.plugins.PluginConfig;
  */
 @PluginConfig.Setup
 public class MusicBotPluginConfig {
+    /**
+     * This is the namespace you want the music bot commands to run e.g. music-
+     */
     @Getter
     private String namespace = "";
+
+
+    /**
+     * This is your youtube api token to allow your users to search for youtube songs and print out youtube thumbnails
+     */
+    @Getter
+    private String youtubeApiToken = "https://developers.google.com/youtube/v3/getting-started";
 }

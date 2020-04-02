@@ -29,15 +29,16 @@ configurations {
 project.configurations.api.canBeResolved(true)
 
 dependencies {
-    implementation 'co.uk.bjdavies:babblebot-server-api:2.0.0'
-    implementation 'co.uk.bjdavies:babblebot-server-server:2.0.0'
-    agent 'co.uk.bjdavies:babblebot-server-agent:2.0.0'
+    implementation 'co.uk.bjdavies:babblebot-server-api:2.1.2'
+    implementation 'co.uk.bjdavies:babblebot-server-server:2.1.2'
+    agent 'co.uk.bjdavies:babblebot-server-agent:2.1.2'
     implementation 'org.javassist:javassist:3.26.0-GA'
     api 'com.sedmelluq:lavaplayer:1.3.34'
 
     implementation 'org.projectlombok:lombok:1.18.12'
     annotationProcessor 'org.projectlombok:lombok:1.18.12'
     implementation 'com.discord4j.discord4j:discord4j-voice:2b6cd47584bbebbbf21cdb50e7abc26d04ed9f9d'
+    compile 'com.github.kokorin.jaffree:jaffree:0.9.3'
 }
 
 shadowJar {
