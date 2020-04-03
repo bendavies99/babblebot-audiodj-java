@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.3.0...v1.3.1) (2020-04-03)
+
+
+### Bug Fixes
+
+* Search requests removing ability to load playlist ([d524250](https://github.com/bendavies99/babblebot-audiodj-java/commit/d524250ae73c45cb89ac74184ea5bd4080a98e9c))
+
 # [1.3.0](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.2.0...v1.3.0) (2020-04-03)
 
 
