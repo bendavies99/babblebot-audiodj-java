@@ -39,12 +39,22 @@ public abstract class MusicTrack {
     }
 
 
+    /**
+     * Check whether it is a playlist
+     *
+     * @return boolean
+     */
     public boolean isPlaylist() {
         return playlist != null;
     }
 
+    /**
+     * Check whether it is a search request
+     *
+     * @return boolean - options does not equal null
+     */
     public boolean isOptions() {
-        return options.length > 0;
+        return options.length > 0 && playlist == null;
     }
 
     @Override
