@@ -1,3 +1,17 @@
+# [1.3.0](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.2.0...v1.3.0) (2020-04-03)
+
+
+### Bug Fixes
+
+* Getting signed url was causing lavaplayer to fail ([93fab50](https://github.com/bendavies99/babblebot-audiodj-java/commit/93fab50e0d657390f6c0352367e08cee4b5a3d14))
+* Validation errors search requests ([313d130](https://github.com/bendavies99/babblebot-audiodj-java/commit/313d1301d09940db037c87341acb353461f2a8ce))
+
+
+### Features
+
+* **roxanne:** Added roxanne command ([99c3d6c](https://github.com/bendavies99/babblebot-audiodj-java/commit/99c3d6c336d33cbcd56a482b9ddcc41a0a6c3cec))
+* **search:** Added search as a request type requires api key ([d590988](https://github.com/bendavies99/babblebot-audiodj-java/commit/d5909887a857506e6766e68f8f7688ea1aa2e731))
+
 # [1.2.0](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.1.0...v1.2.0) (2020-03-30)
 
 
