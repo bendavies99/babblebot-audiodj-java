@@ -482,14 +482,15 @@ public class MusicBotPlugin implements IPluginEvents {
         settings.setNamespace(config.getNamespace());
 
         discordFacade.registerEventHandler(MessageCreateEvent.class, (e) -> {
-            //noinspection OptionalGetWithoutIsPresent
-            if (!e.getMessage().getAuthor().get().isBot()) {
-                Guild g = Objects.requireNonNull(e.getMessage().getGuild().block());
-                Optional<ContinuousResponse> sr = responses.stream()
-                        .filter(c -> c.getChannelId().asString().equals(e.getMessage().getChannelId().asString())
-                                && c.getGuildId().asString().equals(g.getId().asString()))
-                        .findFirst();
-                sr.ifPresent(continuousResponse -> handleContinuousMessage(continuousResponse, e.getMessage()));
+            if (e.getMessage().getAuthor().isPresent()) {
+                if (!e.getMessage().getAuthor().get().isBot()) {
+                    Guild g = Objects.requireNonNull(e.getMessage().getGuild().block());
+                    Optional<ContinuousResponse> sr = responses.stream()
+                            .filter(c -> c.getChannelId().asString().equals(e.getMessage().getChannelId().asString())
+                                    && c.getGuildId().asString().equals(g.getId().asString()))
+                            .findFirst();
+                    sr.ifPresent(continuousResponse -> handleContinuousMessage(continuousResponse, e.getMessage()));
+                }
             }
         });
     }
