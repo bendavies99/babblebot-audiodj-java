@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.3.1...v1.3.2) (2020-04-10)
+
+
+### Bug Fixes
+
+* **deps:** Updated lavaplayer to 1.3.46 ([baf9d36](https://github.com/bendavies99/babblebot-audiodj-java/commit/baf9d3604918dd2202d960e63221aeae91e3ae82))
+
 ## [1.3.1](https://github.com/bendavies99/babblebot-audiodj-java/compare/v1.3.0...v1.3.1) (2020-04-03)
 
 
