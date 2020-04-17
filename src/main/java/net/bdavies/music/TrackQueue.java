@@ -9,6 +9,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import uk.co.bjdavies.api.IApplication;
 import uk.co.bjdavies.api.discord.IDiscordFacade;
 
 import java.util.List;
@@ -30,10 +31,12 @@ public class TrackQueue extends AudioEventAdapter {
     private final BlockingQueue<AudioTrack> underlyingQueue;
 
     private final IDiscordFacade facade;
+    private final IApplication application;
 
-    public TrackQueue(AudioPlayer player, IDiscordFacade facade) {
+    public TrackQueue(AudioPlayer player, IDiscordFacade facade, IApplication application) {
         this.player = player;
         this.facade = facade;
+        this.application = application;
         underlyingQueue = new LinkedBlockingQueue<>();
     }
 
@@ -65,6 +68,12 @@ public class TrackQueue extends AudioEventAdapter {
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
         log.info("Track ended.");
+
+        if (underlyingQueue.size() == 0) {
+            facade.updateBotPlayingText(application.getConfig()
+                    .getDiscordConfig().getPlayingText());
+        }
+
         if (endReason.mayStartNext) {
             pop();
         }

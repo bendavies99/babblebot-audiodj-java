@@ -7,21 +7,16 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.playback.NonAllocatingAudioFrameBuffer;
-import discord4j.core.event.domain.message.MessageCreateEvent;
-import discord4j.core.object.VoiceState;
-import discord4j.core.object.entity.Guild;
-import discord4j.core.object.entity.Member;
-import discord4j.core.object.entity.Message;
-import discord4j.core.object.entity.MessageChannel;
-import discord4j.core.spec.EmbedCreateSpec;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.bdavies.music.GuildMusicManager;
 import net.bdavies.request.RequestStrategy;
 import net.bdavies.request.RequestStrategyFactory;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.Loggers;
 import uk.co.bjdavies.api.IApplication;
 import uk.co.bjdavies.api.command.Command;
 import uk.co.bjdavies.api.command.CommandExample;
@@ -46,7 +41,7 @@ import java.util.function.Function;
  * @since 1.0.0
  */
 @Slf4j
-@Plugin(value = "musicbot", author = "Ben <ben.davies99@outlook.com>", minServerVersion = "2.0.0", namespace = "")
+@Plugin(value = "musicbot", author = "Ben <ben.davies99@outlook.com>", minServerVersion = "3.0.0-pre.1", namespace = "")
 public class MusicBotPlugin implements IPluginEvents {
 
     /**
@@ -58,6 +53,7 @@ public class MusicBotPlugin implements IPluginEvents {
     /**
      * Application
      */
+    @Getter
     private final IApplication application;
 
     /**
@@ -88,18 +84,19 @@ public class MusicBotPlugin implements IPluginEvents {
         musicManagers = new HashMap<>();
     }
 
-    private Mono<GuildMusicManager> addToMusicManagersIfDoesntExist(Long guildId) {
-        if (musicManagers.containsKey(guildId)) {
-            return Mono.just(musicManagers.get(guildId));
+    private Mono<GuildMusicManager> addToMusicManagersIfDoesntExist(Guild g) {
+        if (musicManagers.containsKey(g.getIdLong())) {
+            return Mono.just(musicManagers.get(g.getIdLong()));
         }
         log.info("MusicManager not found creating one...");
-        GuildMusicManager manager = new GuildMusicManager(playerManager, this, discordFacade);
-        musicManagers.put(guildId, manager);
+        GuildMusicManager manager =
+                new GuildMusicManager(playerManager, this, discordFacade, g.getAudioManager());
+        musicManagers.put(g.getIdLong(), manager);
         return Mono.just(manager).log("addToMusicManagersIfDoesntExist");
     }
 
     private Mono<GuildMusicManager> getAudioPlayer(Mono<Guild> guild) {
-        return guild.map(g -> g.getId().asLong()).flatMap(this::addToMusicManagersIfDoesntExist).log("getAudioPlayer");
+        return guild.flatMap(this::addToMusicManagersIfDoesntExist).log("getAudioPlayer");
     }
 
     @Command(description = "describe the music bot")
@@ -114,26 +111,38 @@ public class MusicBotPlugin implements IPluginEvents {
     @CommandParam(value = "url",
             canBeEmpty = false,
             exampleValue = "https://www.youtube.com/watch?v=we9jeU76Y9E")
-    public String play(ICommandContext commandContext) {
+    public void play(ICommandContext commandContext) {
         String value = commandContext.hasParameter("url") ?
                 commandContext.getParameter("url") :
                 commandContext.getValue();
 
-        return loadAndPlay(commandContext, value);
+        loadAndPlay(commandContext, value);
     }
 
     @Command(aliases = "summon", description = "Summon the bot the voice channel you are in.")
     public Mono<String> summon(ICommandContext commandContext) {
-        return commandContext.getMessage().getAuthorAsMember()
-                .flatMap(Member::getVoiceState)
-                .flatMap(VoiceState::getChannel)
-                .flatMap(c -> getAudioPlayer(c.getGuild()).flatMap(gmm -> c.join(spec -> spec.setProvider(gmm.getAudioProvider()))
-                        .flatMap(vc -> {
-                            gmm.setVoiceConnection(vc);
-                            gmm.setHasBeenSummoned(true);
-                            return Mono.just("I Have been summoned to " + c.getName()).log("Return Message");
-                        }))).log(Loggers.getLogger(MusicBotPlugin.class))
-                .map(m -> m != null ? m : "You are not in a voice channel!");
+
+        Guild g = commandContext.getMessage().getGuild();
+        Member m = g.getMember(commandContext.getMessage().getAuthor());
+
+        return Mono.create(sink -> {
+            if (m != null) {
+                GuildVoiceState voiceState = m.getVoiceState();
+                if (voiceState != null) {
+                    VoiceChannel channel = voiceState.getChannel();
+                    if (channel != null) {
+                        getAudioPlayer(Mono.just(g)).subscribe(audio -> {
+                            audio.getManager().openAudioConnection(channel);
+                            audio.setHasBeenSummoned(true);
+                            sink.success("I have summoned to " + channel.getName());
+                        });
+                    } else {
+                        sink.success("You are not in a voice channel, I have no where to join...");
+                    }
+                }
+            }
+
+        });
     }
 
     @Command(description = "Roxanne Drinking game, just for fun.")
@@ -174,71 +183,75 @@ public class MusicBotPlugin implements IPluginEvents {
 
     @Command(aliases = {"exile", "part"},
             description = "Exile the bot from the voice channel, only if your in the channel")
-    public String exile(ICommandContext context) {
-        return runCommand(context, gmm -> {
-            String toReturn = discordFacade
-                    .getOurUser()
-                    .flatMap(u -> context.getMessage().getGuild()
-                            .flatMap(g -> u.asMember(g.getId())))
-                    .flatMap(self -> context.getMessage().getAuthorAsMember()
-                            .flatMap(member -> member.getVoiceState()
-                                    .flatMap(memberVoiceState -> self.getVoiceState()
-                                            .flatMap(selfVoiceState -> selfVoiceState.getChannel()
-                                                    .flatMap(selfVoiceChannel -> memberVoiceState.getChannel()
-                                                            .filterWhen(memberVoiceChannel ->
-                                                                    Mono.just(
-                                                                            selfVoiceChannel.getId().asLong() ==
-                                                                                    memberVoiceChannel.getId().asLong()))
-                                                            .map(memberVoiceChannel -> {
-                                                                gmm.getPlayer().destroy();
-                                                                gmm.getQueue().empty();
-                                                                gmm.setHasBeenSummoned(false);
-                                                                gmm.getVoiceConnection().disconnect();
-                                                                return "Left Channel: " + memberVoiceChannel.getName();
-                                                            })))))).map(m -> m).block();
+    public void exile(ICommandContext context) {
+        runCommand(context, gmm -> {
 
-            return toReturn != null ? toReturn :
-                    "Unable to leave channel, please make sure the bot is in the same voice channel you are in.";
+            return Mono.create(sink -> {
+                Guild g = context.getMessage().getGuild();
+                //noinspection ReactiveStreamsNullableInLambdaInTransform
+                discordFacade.getOurUser()
+                        .map(g::getMember)
+                        .subscribe(self -> {
+                            try {
+                                Member m = g.getMember(context.getMessage().getAuthor());
+                                VoiceChannel selfChannel = Objects.requireNonNull(self.getVoiceState()).getChannel();
+                                assert m != null;
+                                VoiceChannel authorChannel = Objects.requireNonNull(m.getVoiceState()).getChannel();
+
+                                assert selfChannel != null;
+                                assert authorChannel != null;
+                                if (selfChannel.getId().equals(authorChannel.getId())) {
+                                    gmm.getManager().closeAudioConnection();
+                                    gmm.setHasBeenSummoned(false);
+                                    sink.success("Left Channel: " + authorChannel.getName());
+                                }
+
+                            } catch (NullPointerException e) {
+                                sink.success("Unable to leave channel, please make sure the bot is in the same " +
+                                        "voice channel you are in.");
+                            }
+                        });
+            });
         });
     }
 
     @Command(description = "Skip a track use the value of all to clear the queue (useful for someone who has requested a playlist)", exampleValue = "all")
     @CommandExample("!skip all")
-    public String skip(ICommandContext context) {
-        return runCommand(context, gmm -> {
+    public void skip(ICommandContext context) {
+        runCommand(context, gmm -> {
             if (context.getValue().toLowerCase().contains("all")) {
                 gmm.getQueue().empty();
                 gmm.getQueue().pop();
-                return "Cleared Queue";
+                return Mono.just("Cleared Queue");
             }
 
             gmm.getQueue().pop();
 
-            return "Track skipped.";
+            return Mono.just("Track skipped.");
         });
     }
 
     @Command(description = "Pause the current playing track.")
-    public String pause(ICommandContext context) {
-        return runCommand(context, gmm -> {
+    public void pause(ICommandContext context) {
+        runCommand(context, gmm -> {
             if (gmm.getPlayer().isPaused()) {
-                return "Bot already paused use !music-resume";
+                return Mono.just("Bot already paused use !music-resume");
             }
 
             gmm.getPlayer().setPaused(true);
-            return "Track paused.";
+            return Mono.just("Track paused.");
         });
     }
 
     @Command(description = "Pause the current playing track.")
-    public String resume(ICommandContext context) {
-        return runCommand(context, gmm -> {
+    public void resume(ICommandContext context) {
+        runCommand(context, gmm -> {
             if (!gmm.getPlayer().isPaused()) {
-                return "Bot already playing use !music-pause";
+                return Mono.just("Bot already playing use !music-pause");
             }
 
             gmm.getPlayer().setPaused(false);
-            return "Track resumed.";
+            return Mono.just("Track resumed.");
         });
     }
 
@@ -246,10 +259,10 @@ public class MusicBotPlugin implements IPluginEvents {
     @CommandParam(value = "mins", canBeEmpty = false, exampleValue = "1")
     @CommandParam(value = "seconds", canBeEmpty = false, exampleValue = "1")
     @CommandParam(value = "hours", canBeEmpty = false, exampleValue = "1")
-    public String skipTo(ICommandContext context) {
-        return runCommand(context, gmm -> {
+    public void skipTo(ICommandContext context) {
+        runCommand(context, gmm -> {
             if (gmm.getPlayer().getPlayingTrack() == null) {
-                return "I am not a playing a track";
+                return Mono.just("I am not a playing a track");
             }
 
             if (context.hasParameter("mins")) {
@@ -257,7 +270,7 @@ public class MusicBotPlugin implements IPluginEvents {
                 v = v * 1000 * 60;
                 long value = Long.parseLong(Integer.toString(v));
                 gmm.getPlayer().getPlayingTrack().setPosition(value);
-                return "Track skipped to " + context.getParameter("mins") + " mins.";
+                return Mono.just("Track skipped to " + context.getParameter("mins") + " mins.");
             }
 
             if (context.hasParameter("seconds")) {
@@ -265,7 +278,7 @@ public class MusicBotPlugin implements IPluginEvents {
                 v = v * 1000;
                 long value = Long.parseLong(Integer.toString(v));
                 gmm.getPlayer().getPlayingTrack().setPosition(value);
-                return "Track skipped to " + context.getParameter("seconds") + " seconds.";
+                return Mono.just("Track skipped to " + context.getParameter("seconds") + " seconds.");
             }
 
             if (context.hasParameter("hours")) {
@@ -273,25 +286,28 @@ public class MusicBotPlugin implements IPluginEvents {
                 v = v * 1000;
                 long value = Long.parseLong(Integer.toString(v));
                 gmm.getPlayer().getPlayingTrack().setPosition(value);
-                return "Track skipped to " + context.getParameter("hours") + " hours.";
+                return Mono.just("Track skipped to " + context.getParameter("hours") + " hours.");
             }
 
             long value = Long.parseLong(context.getValue());
 
             gmm.getPlayer().getPlayingTrack().setPosition(value);
 
-            return "Track skipped to part.";
+            return Mono.just("Track skipped to part.");
         });
     }
 
-    private String runCommand(ICommandContext context, Function<GuildMusicManager, String> consumer) {
-        return this.getAudioPlayer(context.getMessage().getGuild()).map(gmm -> {
+    private void runCommand(ICommandContext context, Function<GuildMusicManager, Mono<String>> consumer) {
+        this.getAudioPlayer(Mono.just(context.getMessage().getGuild())).subscribe(gmm -> {
             if (!gmm.isHasBeenSummoned()) {
-                return "You have not summoned me, Command will not work unless you use !music-summon";
+                context.getCommandResponse()
+                        .sendString("You have not summoned me, Command will not work unless you use "
+                                + this.application.getConfig().getDiscordConfig().getCommandPrefix()
+                                + this.config.getNamespace() + "summon");
+            } else {
+                context.getCommandResponse().sendString(consumer.apply(gmm));
             }
-
-            return consumer.apply(gmm);
-        }).block();
+        });
     }
 
     /**
@@ -303,14 +319,12 @@ public class MusicBotPlugin implements IPluginEvents {
      * @param guild     - The guild to get the information for the times.
      * @return EmbedObject
      */
-    public Consumer<EmbedCreateSpec> getEmbedObject(AudioTrack track, String desc, boolean isRequest, Mono<Guild> guild) {
+    public Consumer<EmbedBuilder> getEmbedObject(AudioTrack track, String desc, boolean isRequest, Guild guild) {
         return embed -> embed.setTitle(track.getInfo().title)
-                .setFooter("Provided by BabbleBot 2020. Authored by Ben Davies", "")
+                .setFooter("Provided by BabbleBot 2020. Authored by Ben Davies")
                 //.setThumbnail(JSONUtils.getVideoThumbnail(track.getInfo().identifier))
-                .setColor(Objects.requireNonNull(guild
-                        .flatMap(g -> discordFacade.getOurUser()
-                                .flatMap(u -> u.asMember(g.getId()))
-                                .flatMap(Member::getColor)).map(c -> c).block()))
+                .setColor(Objects.requireNonNull(guild.getMember(Objects.requireNonNull(discordFacade.getOurUser().block())))
+                        .getColor())
                 .setDescription(desc)
                 .addField("Song url", "http://y2u.be/" + track.getInfo().identifier, false)
                 .addField("Song length", getSongLengthFormatted(track), true)
@@ -325,9 +339,9 @@ public class MusicBotPlugin implements IPluginEvents {
      * @param guild - The guild that we want get the queue for.
      * @return long
      */
-    public long getLengthOfQueue(Mono<Guild> guild, AudioTrack requestedTrack) {
+    public long getLengthOfQueue(Guild guild, AudioTrack requestedTrack) {
         AtomicLong time = new AtomicLong();
-        getAudioPlayer(guild).doOnNext(gmm -> {
+        getAudioPlayer(Mono.just(guild)).doOnNext(gmm -> {
             AudioTrack currentTrack = gmm.getPlayer().getPlayingTrack();
             if (currentTrack != null) {
                 if (currentTrack != requestedTrack) {
@@ -349,7 +363,7 @@ public class MusicBotPlugin implements IPluginEvents {
      * @param guild - The guild that we want get the queue for.
      * @return String
      */
-    public String getQueueTimeFormatted(Mono<Guild> guild, AudioTrack track) {
+    public String getQueueTimeFormatted(Guild guild, AudioTrack track) {
         long queueTime = getLengthOfQueue(guild, track);
         return getTimeFormatted(queueTime);
     }
@@ -387,83 +401,75 @@ public class MusicBotPlugin implements IPluginEvents {
         return "" + (hours < 10 ? "0" + hours : hours) + ":" + (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
     }
 
-    private void sendEmbedMessage(Mono<MessageChannel> textChannel, Consumer<EmbedCreateSpec> embed) {
-        textChannel.subscribe(c -> c.createMessage(spec -> spec.setEmbed(embed)).subscribe());
+    private void sendEmbedMessage(MessageChannel textChannel, Consumer<EmbedBuilder> embed) {
+        EmbedBuilder builder = new EmbedBuilder();
+        embed.accept(builder);
+        textChannel.sendMessage(builder.build()).submit();
     }
 
-    private String loadAndPlay(final ICommandContext commandContext, String value) {
-        return runCommand(commandContext, gmm -> {
-            log.info("Handling value: " + value);
+    private void loadAndPlay(final ICommandContext commandContext, String value) {
+        runCommand(commandContext, gmm -> {
             if (commandContext.getValue().equals("") && value.equals("")) {
                 if (gmm.getPlayer().isPaused()) {
                     gmm.getPlayer().setPaused(false);
-                    return "Resumed playing";
+                    return Mono.just("Resumed playing: " + gmm.getPlayer().getPlayingTrack().getInfo().title);
                 } else {
-                    return "Please provide a url (Youtube, Twitch, Soundcloud) or search query.";
+                    return Mono.just("Please provide a url to play from.");
                 }
             }
 
             RequestStrategy strategy = RequestStrategyFactory.makeRequestStrategy(config, application, value);
-            strategy.handle(config, value, playerManager).doOnError(e ->
-                    commandContext.getMessage().getChannel()
-                            .flatMap(c ->
-                                    c.createMessage("Unfortunately the song you requested, failed please make sure the resource exists."))
-                            .subscribe())
-                    .subscribe(mt -> {
-                        log.info("Music Track: " + mt);
+            return Mono.create(sink -> strategy.handle(config, value, playerManager).subscribe(mt -> {
 
-                        if (mt.isOptions()) {
-                            commandContext.getMessage().getGuild().subscribe(g -> {
+                // This means it is a continuous response.
+                if (mt.isOptions()) {
+                    Guild g = commandContext.getMessage().getGuild();
+                    Optional<ContinuousResponse> found = responses.stream()
+                            .filter(r -> r.getGuildId().equals(g.getId()))
+                            .filter(r -> r.getChannelId().equals(commandContext.getMessage().getChannel().getId()))
+                            .findAny();
+                    found.ifPresent(responses::remove);
 
-                                Optional<ContinuousResponse> found = responses.stream()
-                                        .filter(r -> r.getGuildId().asString().equals(g.getId().asString()))
-                                        .filter(r -> r.getChannelId().asString().equals(commandContext.getMessage().getChannelId().asString()))
-                                        .findAny();
-                                found.ifPresent(responses::remove);
+                    ContinuousResponse continuousResponse = new ContinuousResponse(g.getId(),
+                            commandContext.getMessage().getChannel().getId(),
+                            Arrays.stream(mt.getOptions()).map(o -> o.split("&")[1])
+                                    .toArray(String[]::new));
+                    responses.add(continuousResponse);
 
-                                ContinuousResponse continuousResponse = new ContinuousResponse(g.getId(),
-                                        commandContext.getMessage().getChannelId(),
-                                        Arrays.stream(mt.getOptions()).map(o -> o.split("&")[1])
-                                                .toArray(String[]::new));
-                                responses.add(continuousResponse);
-                            });
-
-                            commandContext.getCommandResponse().sendEmbed(spec -> {
-                                spec.setTitle("Here is what has been found: (Pick one)");
-                                StringBuilder sb = new StringBuilder("```md\n");
-                                AtomicInteger index = new AtomicInteger(1);
-                                Arrays.stream(mt.getOptions()).map(o -> o.split("&")[0]).forEach(o ->
-                                        sb.append("[").append(index.getAndIncrement()).append("]: ").append(o).append("\n"));
-                                sb.append("[c]: cancel \n");
-                                sb.append("```");
-                                spec.setDescription(sb.toString());
-                            });
-
-                        } else if (mt.isPlaylist()) {
-                            AudioPlaylist playlist = mt.getPlaylist();
-                            Message message = commandContext.getMessage();
-                            if (commandContext.hasParameter("loadPlaylist")) {
-
-                                playlist.getTracks().forEach(gmm.getQueue()::enQueue);
-                                message.getChannel()
-                                        .flatMap(c -> c.createMessage("Loaded Playlist: " + playlist.getTracks().size() + " Tracks."))
-                                        .subscribe();
-                            } else {
-                                gmm.getQueue().enQueue(playlist.getSelectedTrack());
-                                sendEmbedMessage(message.getChannel(),
-                                        getEmbedObject(playlist.getSelectedTrack(),
-                                                "Using song requested, use -loadPlaylist to submit whole playlist",
-                                                true,
-                                                message.getGuild()));
-                            }
-                        } else {
-                            gmm.getQueue().enQueue(mt.getAudioTrack());
-                            sendEmbedMessage(commandContext.getMessage().getChannel(),
-                                    getEmbedObject(mt.getAudioTrack(), "Song requested.", true,
-                                            commandContext.getMessage().getGuild()));
-                        }
+                    commandContext.getCommandResponse().sendEmbed(spec -> {
+                        spec.setTitle("Here is what has been found: (Pick one)");
+                        StringBuilder sb = new StringBuilder("```md\n");
+                        AtomicInteger index = new AtomicInteger(1);
+                        Arrays.stream(mt.getOptions()).map(o -> o.split("&")[0]).forEach(o ->
+                                sb.append("[").append(index.getAndIncrement()).append("]: ").append(o).append("\n"));
+                        sb.append("[c]: cancel \n");
+                        sb.append("```");
+                        spec.setDescription(sb.toString());
                     });
-            return "";
+                    sink.success();
+                } else if (mt.isPlaylist()) {
+                    AudioPlaylist playlist = mt.getPlaylist();
+                    Message message = commandContext.getMessage();
+                    if (commandContext.hasParameter("loadPlaylist")) {
+
+                        playlist.getTracks().forEach(gmm.getQueue()::enQueue);
+                        sink.success("Loaded Playlist: " + playlist.getTracks().size() + " Tracks.");
+                    } else {
+                        gmm.getQueue().enQueue(playlist.getSelectedTrack());
+                        sendEmbedMessage(message.getChannel(),
+                                getEmbedObject(playlist.getSelectedTrack(),
+                                        "Using song requested, use -loadPlaylist to submit whole playlist",
+                                        true,
+                                        message.getGuild()));
+                    }
+                } else {
+                    gmm.getQueue().enQueue(mt.getAudioTrack());
+                    sendEmbedMessage(commandContext.getMessage().getChannel(),
+                            getEmbedObject(mt.getAudioTrack(), "Song requested.", true,
+                                    commandContext.getMessage().getGuild()));
+                }
+
+            }, (t) -> sink.success("The url you are trying to request failed, please try a different source.")));
         });
     }
 
@@ -481,16 +487,15 @@ public class MusicBotPlugin implements IPluginEvents {
 
         settings.setNamespace(config.getNamespace());
 
-        discordFacade.registerEventHandler(MessageCreateEvent.class, (e) -> {
-            if (e.getMessage().getAuthor().isPresent()) {
-                if (!e.getMessage().getAuthor().get().isBot()) {
-                    Guild g = Objects.requireNonNull(e.getMessage().getGuild().block());
-                    Optional<ContinuousResponse> sr = responses.stream()
-                            .filter(c -> c.getChannelId().asString().equals(e.getMessage().getChannelId().asString())
-                                    && c.getGuildId().asString().equals(g.getId().asString()))
-                            .findFirst();
-                    sr.ifPresent(continuousResponse -> handleContinuousMessage(continuousResponse, e.getMessage()));
-                }
+        discordFacade.registerEventHandler(GuildMessageReceivedEvent.class, (e) -> {
+            if (!e.getMessage().getAuthor().isBot() && !e.getMessage()
+                    .getContentStripped().contains(application.getConfig().getDiscordConfig().getCommandPrefix())) {
+                Guild g = e.getGuild();
+                Optional<ContinuousResponse> sr = responses.stream()
+                        .filter(c -> c.getChannelId().equals(e.getMessage().getChannel().getId())
+                                && c.getGuildId().equals(g.getId()))
+                        .findFirst();
+                sr.ifPresent(continuousResponse -> handleContinuousMessage(continuousResponse, e.getMessage()));
             }
         });
     }
@@ -498,15 +503,14 @@ public class MusicBotPlugin implements IPluginEvents {
 
     private void handleContinuousMessage(ContinuousResponse continuousResponse, Message m) {
         log.info("Handling continuous response...");
-        //noinspection OptionalGetWithoutIsPresent
-        String content = m.getContent().get().trim();
+        String content = m.getContentStripped().trim();
         try {
             int idx = Integer.parseInt(content) - 1;
             String[] options = continuousResponse.getOptions();
 
             if (idx > 2 || idx < 0) {
-                m.getChannel().subscribe(c -> c.createMessage("Invalid option please request again. End of request...")
-                        .subscribe());
+                m.getChannel().sendMessage("Invalid option please request again. End of request...")
+                        .submit();
                 responses.remove(continuousResponse);
                 return;
             }
@@ -518,12 +522,12 @@ public class MusicBotPlugin implements IPluginEvents {
 
         } catch (NumberFormatException e) {
             if (content.toLowerCase().equals("c")) {
-                m.getChannel().subscribe(c -> c.createMessage("" +
+                m.getChannel().sendMessage("" +
                         "Command Canceled...")
-                        .subscribe());
+                        .submit();
             } else {
-                m.getChannel().subscribe(c -> c.createMessage("Invalid option please request again. End of request...")
-                        .subscribe());
+                m.getChannel().sendMessage("Invalid option please request again. End of request...")
+                        .submit();
             }
         }
 

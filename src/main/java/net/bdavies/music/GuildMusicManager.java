@@ -2,12 +2,12 @@ package net.bdavies.music;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
-import discord4j.voice.AudioProvider;
-import discord4j.voice.VoiceConnection;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.bdavies.MusicBotPlugin;
+import net.dv8tion.jda.api.audio.AudioSendHandler;
+import net.dv8tion.jda.api.managers.AudioManager;
 import uk.co.bjdavies.api.discord.IDiscordFacade;
 
 /**
@@ -34,31 +34,28 @@ public class GuildMusicManager {
     /**
      * This is reference for the Music bot plugin
      */
+    @Getter
     private final MusicBotPlugin pluginReference;
 
-    /**
-     * This is the current connection inside the Guild. The bot needs this to disconnect from the voice channel;
-     */
     @Getter
-    @Setter
-    private VoiceConnection voiceConnection;
+    private final AudioManager manager;
 
     @Getter
     @Setter
     private boolean hasBeenSummoned = false;
 
+    @Getter
+    private final AudioSendHandler sendHandler;
 
-    private final AudioProvider provider;
 
-    public GuildMusicManager(final AudioPlayerManager manager, final MusicBotPlugin pluginReference, final IDiscordFacade facade) {
+    public GuildMusicManager(final AudioPlayerManager manager, final MusicBotPlugin pluginReference, final IDiscordFacade facade, final AudioManager guildManager) {
         this.player = manager.createPlayer();
         this.pluginReference = pluginReference;
-        this.queue = new TrackQueue(player, facade);
-        this.provider = new DiscordAudioProvider(player);
+        this.queue = new TrackQueue(player, facade, pluginReference.getApplication());
+        this.manager = guildManager;
         this.player.addListener(queue);
+        this.sendHandler = new DiscordAudioProvider(player);
+        guildManager.setSendingHandler(sendHandler);
     }
 
-    public AudioProvider getAudioProvider() {
-        return provider;
-    }
 }

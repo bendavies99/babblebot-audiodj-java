@@ -1,6 +1,5 @@
 package net.bdavies;
 
-import discord4j.core.object.util.Snowflake;
 import lombok.Getter;
 
 /**
@@ -10,13 +9,13 @@ import lombok.Getter;
 public class ContinuousResponse {
 
     @Getter
-    private final Snowflake guildId;
+    private final String guildId;
     @Getter
-    private final Snowflake channelId;
+    private final String channelId;
     @Getter
     private final String[] options;
 
-    public ContinuousResponse(Snowflake guildId, Snowflake channelId, String[] options) {
+    public ContinuousResponse(String guildId, String channelId, String[] options) {
         this.guildId = guildId;
         this.channelId = channelId;
         this.options = options;

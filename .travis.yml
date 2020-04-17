@@ -27,3 +27,5 @@ jobs:
         provider: script
         skip_cleanup: true
         script: npm run release
+        on:
+          all_branches: true

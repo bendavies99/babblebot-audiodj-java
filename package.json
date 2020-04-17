@@ -31,6 +31,14 @@
     }
   },
   "release": {
+    "branches": [
+      "master",
+      {
+        "name": "next",
+        "channel": "channel-next",
+        "prerelease": "pre"
+      }
+    ],
     "plugins": [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
